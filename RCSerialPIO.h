@@ -28,10 +28,10 @@
 
 extern "C" typedef struct uart_inst uart_inst_t;
 
-class SerialPIO : public arduino::HardwareSerial {
+class RCSerialPIO : public arduino::HardwareSerial {
 public:
-    SerialPIO(pin_size_t tx, pin_size_t rx, size_t fifoSize = 32);
-    ~SerialPIO();
+    RCSerialPIO(pin_size_t tx, pin_size_t rx, size_t fifoSize = 32);
+    ~RCSerialPIO();
 
     void begin(unsigned long baud = 115200) override {
         begin(baud, SERIAL_8N1);
@@ -104,5 +104,5 @@ protected:
 
 #ifdef ARDUINO_NANO_RP2040_CONNECT
 // NINA updates
-extern SerialPIO Serial3;
+extern RCSerialPIO Serial3;
 #endif

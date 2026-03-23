@@ -18,7 +18,7 @@
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "SerialPIO.h"
+#include "RCSerialPIO.h"
 #include "CoreMutex.h"
 #include <hardware/gpio.h>
 #include <map>
@@ -74,13 +74,13 @@ static int __not_in_flash_func(_parity)(int data) {
     return (0x6996 >> data) & 1;
 }
 
-// We need to cache generated SerialPIOs so we can add data to them from
+// We need to cache generated RCSerialPIOs so we can add data to them from
 // the shared handler
-static SerialPIO *_pioSP[3][4];
-void __not_in_flash_func(SerialPIO::_fifoIRQ)() {
+static RCSerialPIO *_pioSP[3][4];
+void __not_in_flash_func(RCSerialPIO::_fifoIRQ)() {
     for (int p = 0; p < 3; p++) {
         for (int sm = 0; sm < 4; sm++) {
-            SerialPIO *s = _pioSP[p][sm];
+            RCSerialPIO *s = _pioSP[p][sm];
             if (s) {
                 s->_handleIRQ();
             }
@@ -88,7 +88,7 @@ void __not_in_flash_func(SerialPIO::_fifoIRQ)() {
     }
 }
 
-void __not_in_flash_func(SerialPIO::_handleIRQ)() {
+void __not_in_flash_func(RCSerialPIO::_handleIRQ)() {
     if ((_rx == NOPIN) || (_onCore != get_core_num())) {
         return;
     }
@@ -131,7 +131,7 @@ void __not_in_flash_func(SerialPIO::_handleIRQ)() {
     }
 }
 
-SerialPIO::SerialPIO(pin_size_t tx, pin_size_t rx, size_t fifoSize) {
+RCSerialPIO::RCSerialPIO(pin_size_t tx, pin_size_t rx, size_t fifoSize) {
     _tx = tx;
     _rx = rx;
     _fifoSize = fifoSize + 1; // Always one unused entry
@@ -141,7 +141,7 @@ SerialPIO::SerialPIO(pin_size_t tx, pin_size_t rx, size_t fifoSize) {
     _invertRX = false;
 }
 
-SerialPIO::~SerialPIO() {
+RCSerialPIO::~RCSerialPIO() {
     end();
     delete _queue;
 }
@@ -161,7 +161,7 @@ static int pio_irq_0(PIO p) {
     }
 }
 
-void SerialPIO::begin(unsigned long baud, uint16_t config) {
+void RCSerialPIO::begin(unsigned long baud, uint16_t config) {
     _onCore = get_core_num();
     _overflow = false;
     _break = false;
@@ -201,7 +201,7 @@ void SerialPIO::begin(unsigned long baud, uint16_t config) {
     }
 
     if ((_tx == NOPIN) && (_rx == NOPIN)) {
-        DEBUGCORE("ERROR: No pins specified for SerialPIO\n");
+        DEBUGCORE("ERROR: No pins specified for RCSerialPIO\n");
         return;
     }
 
@@ -272,7 +272,7 @@ void SerialPIO::begin(unsigned long baud, uint16_t config) {
     _running = true;
 }
 
-void SerialPIO::end() {
+void RCSerialPIO::end() {
     if (!_running) {
         return;
     }
@@ -300,7 +300,7 @@ void SerialPIO::end() {
     _running = false;
 }
 
-int SerialPIO::peek() {
+int RCSerialPIO::peek() {
     CoreMutex m(&_mutex);
     if (!_running || !m || (_rx == NOPIN)) {
         return -1;
@@ -313,7 +313,7 @@ int SerialPIO::peek() {
     }
 }
 
-int SerialPIO::read() {
+int RCSerialPIO::read() {
     CoreMutex m(&_mutex);
     if (!_running || !m || (_rx == NOPIN)) {
         return -1;
@@ -326,7 +326,7 @@ int SerialPIO::read() {
     }
 }
 
-bool SerialPIO::overflow() {
+bool RCSerialPIO::overflow() {
     CoreMutex m(&_mutex);
     if (!_running || !m || (_rx == NOPIN)) {
         return false;
@@ -337,7 +337,7 @@ bool SerialPIO::overflow() {
     return hold;
 }
 
-bool SerialPIO::getBreakReceived() {
+bool RCSerialPIO::getBreakReceived() {
     CoreMutex m(&_mutex);
     if (!_running || !m || (_rx == NOPIN)) {
         return false;
@@ -349,7 +349,7 @@ bool SerialPIO::getBreakReceived() {
 }
 
 
-int SerialPIO::available() {
+int RCSerialPIO::available() {
     CoreMutex m(&_mutex);
     if (!_running || !m || (_rx == NOPIN)) {
         return 0;
@@ -357,7 +357,7 @@ int SerialPIO::available() {
     return _queue->available();
 }
 
-int SerialPIO::availableForWrite() {
+int RCSerialPIO::availableForWrite() {
     CoreMutex m(&_mutex);
     if (!_running || !m || (_tx == NOPIN)) {
         return 0;
@@ -365,7 +365,7 @@ int SerialPIO::availableForWrite() {
     return 8 - pio_sm_get_tx_fifo_level(_txPIO, _txSM);
 }
 
-void SerialPIO::flush() {
+void RCSerialPIO::flush() {
     CoreMutex m(&_mutex);
     if (!_running || !m || (_tx == NOPIN)) {
         return;
@@ -377,7 +377,7 @@ void SerialPIO::flush() {
     delayMicroseconds((1000000 * (_txBits + 3 /* start + stop + parity */)) / _baud);
 }
 
-size_t SerialPIO::write(uint8_t c) {
+size_t RCSerialPIO::write(uint8_t c) {
     CoreMutex m(&_mutex);
     if (!_running || !m || (_tx == NOPIN)) {
         return 0;
@@ -400,11 +400,11 @@ size_t SerialPIO::write(uint8_t c) {
     return 1;
 }
 
-SerialPIO::operator bool() {
+RCSerialPIO::operator bool() {
     return _running;
 }
 
 #ifdef ARDUINO_NANO_RP2040_CONNECT
 // NINA updates
-SerialPIO Serial3(SERIAL3_TX, SERIAL3_RX);
+RCSerialPIO Serial3(SERIAL3_TX, SERIAL3_RX);
 #endif
